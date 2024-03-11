@@ -22,4 +22,43 @@
 """
 
 import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from src.PCA import PCA
+from src.SVM import SVM_classifier
+from src.NeuralNetwork import NeuralNetwork
+from src.data import load_data
 
+# Load the data
+X, y = load_data()
+# Split the data
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1234)
+
+# Standardize the data
+sc = StandardScaler()
+X_train = sc.fit_transform(X_train)
+X_test = sc.transform(X_test)
+
+# Apply PCA
+pca = PCA()
+X_train = pca.transform(X_train)
+X_test = pca.transform(X_test)
+
+# SVM Classifier
+svm = SVM_classifier()
+svm.fit(X_train, y_train)
+predictions = svm.predict(X_test)
+print(f"SVM Accuracy: {np.mean(predictions == y_test)}")
+
+# Neural Network
+nn = NeuralNetwork(layers=[10, 5, 1], learning_rate=0.01, no_of_iterations=1000)
+nn.fit(X_train, y_train)
+predictions = nn.predict(X_test)
+predictions = np.where(predictions > 0.5, 1, -1)
+print(f"NN Accuracy: {np.mean(predictions == y_test)}")
+# Plot the loss
+plt.plot(nn.loss)
+plt.xlabel("Iteration")
+plt.ylabel("Loss")
+plt.show()
