@@ -20,45 +20,48 @@
     run the project.
 
 """
-
-import numpy as np
-import matplotlib.pyplot as plt
+from sklearn.datasets import fetch_20newsgroups
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.decomposition import PCA
+from sklearn.svm import OneClassSVM
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from src.PCA import PCA
-from src.SVM import SVM_classifier
-from src.NeuralNetwork import NeuralNetwork
-from src.data import load_data
+from sklearn.metrics import classification_report, confusion_matrix
+# Preprocess the text data
+from nltk.corpus import stopwords
+from nltk.stem.porter import PorterStemmer
+# Tokenize the text and remove stopwords
+from nltk.tokenize import word_tokenize
 
-# Load the data
-X, y = load_data()
-# Split the data
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1234)
+# Load the 20newsgroups dataset
+newsgroups_data = fetch_20newsgroups(subset='all')
 
-# Standardize the data
-sc = StandardScaler()
-X_train = sc.fit_transform(X_train)
-X_test = sc.transform(X_test)
+corpus = newsgroups_data.data
+stop_words = set(stopwords.words('english'))
+stemmer = PorterStemmer()
 
-# Apply PCA
-pca = PCA()
-X_train = pca.transform(X_train)
-X_test = pca.transform(X_test)
+tokenized_corpus = [word_tokenize(review) for review in corpus]
+filtered_corpus = [[word for word in review if word not in stop_words] for review in tokenized_corpus]
 
-# SVM Classifier
-svm = SVM_classifier()
-svm.fit(X_train, y_train)
-predictions = svm.predict(X_test)
-print(f"SVM Accuracy: {np.mean(predictions == y_test)}")
+# Convert the text into a document-term matrix with term frequency
+vectorizer = TfidfVectorizer(use_idf=True)
+X = vectorizer.fit_transform(filtered_corpus)
 
-# Neural Network
-nn = NeuralNetwork(layers=[10, 5, 1], learning_rate=0.01, no_of_iterations=1000)
-nn.fit(X_train, y_train)
-predictions = nn.predict(X_test)
-predictions = np.where(predictions > 0.5, 1, -1)
-print(f"NN Accuracy: {np.mean(predictions == y_test)}")
-# Plot the loss
-plt.plot(nn.loss)
-plt.xlabel("Iteration")
-plt.ylabel("Loss")
-plt.show()
+# Apply PCA for dimensionality reduction
+pca = PCA(n_components=100)
+X_pca = pca.fit_transform(X)
+
+# Split the data into training and test sets
+X_train, X_test = train_test_split(X_pca, test_size=0.2, random_state=42)
+
+# Train the OCSVM classifier using the negative class data
+y_train = [0] * len(X_train)
+ocsvm = OneClassSVM(nu=0.1, kernel='rbf', gamma=0.01)
+ocsvm.fit(X_train, y_train)
+
+# Test the OCSVM classifier using the positive class data
+y_test = [1] * len(X_test)
+y_pred = ocsvm.predict(X_test)
+
+# Print the classification report and confusion matrix
+print(classification_report(y_test, y_pred))
+print(confusion_matrix(y_test, y_pred))
